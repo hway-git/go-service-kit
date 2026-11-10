@@ -21,6 +21,19 @@ func Initialize(db *gorm.DB, username, password string) error {
 	if len(password) < 12 || len(password) > 1024 {
 		return fmt.Errorf("BOOTSTRAP_ADMIN_PASSWORD 须为 12 至 1024 字节")
 	}
+	if db.Migrator().HasTable(&model.Menu{}) && db.Migrator().HasColumn(&model.Menu{}, "api_permission") {
+		var duplicates []string
+		if err := db.Model(&model.Menu{}).Where("api_permission <> ?", "").Group("api_permission").
+			Having("COUNT(*) > 1").Limit(1).Pluck("api_permission", &duplicates).Error; err != nil {
+			return fmt.Errorf("check permission code uniqueness: %w", err)
+		}
+		if len(duplicates) != 0 {
+			return fmt.Errorf("duplicate permission code %q: review existing nodes and grants before retrying", duplicates[0])
+		}
+		if err := db.Model(&model.Menu{}).Where("api_permission = ?", "").UpdateColumn("api_permission", nil).Error; err != nil {
+			return fmt.Errorf("normalize empty permission codes: %w", err)
+		}
+	}
 	if err := db.AutoMigrate(
 		&model.Admin{}, &model.AdminLog{}, &model.IpWhitelist{},
 		&model.Menu{}, &model.Role{}, &model.RoleGroup{},
@@ -74,9 +87,17 @@ func Initialize(db *gorm.DB, username, password string) error {
 func initializeManagementPermissions(tx *gorm.DB) error {
 	for _, endpoint := range types.ManagementEndpoints {
 		node := model.Menu{Title: endpoint.Title, Type: model.MENU_TYPE_NODE, ApiPath: endpoint.Path, ApiMethod: endpoint.Method,
-			ApiPermission: endpoint.Permission(), Status: model.MENU_STATUS_ON, NoDelete: 1}
+			ApiPermission: model.PermissionCode(endpoint.Permission()), Status: model.MENU_STATUS_ON, NoDelete: 1}
 		if err := tx.Where("api_permission = ?", node.ApiPermission).FirstOrCreate(&node).Error; err != nil {
 			return err
+		}
+		if node.Type != model.MENU_TYPE_NODE || node.ApiPath != endpoint.Path || node.ApiMethod != endpoint.Method {
+			return fmt.Errorf("permission %q conflicts with registered route %s %s", node.ApiPermission, endpoint.Method, endpoint.Path)
+		}
+		if node.NoDelete != 1 {
+			if err := tx.Model(&node).UpdateColumn("no_delete", 1).Error; err != nil {
+				return err
+			}
 		}
 	}
 	return nil

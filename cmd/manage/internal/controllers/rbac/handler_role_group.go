@@ -202,20 +202,7 @@ func (c *RoleGroupController) Delete(ctx *gin.Context) {
 	//DB
 	roleGroupDB := repository.RoleGroup{}
 
-	var roleGroup model.RoleGroup
-	if err := roleGroupDB.GetById(int64(params.Id), &roleGroup); err != nil {
-		ctx.JSON(response.HTTP_API_ERROR, gin.H{"error": help.T(ctx, "参数错误")})
-		return
-	}
-	if roleGroup.NoDelete == 1 {
-		ctx.JSON(response.HTTP_API_ERROR, gin.H{"error": help.T(ctx, "该角色组不可删除")})
-		return
-	}
-
-	ids := []int{}
-	ids = append(ids, params.Id)
-
-	if err := roleGroupDB.Delete(ids); err != nil {
+	if err := roleGroupDB.Delete(params.Id); err != nil {
 		ctx.JSON(response.HTTP_API_ERROR, gin.H{"error": help.T(ctx, err.Error())})
 		return
 	}

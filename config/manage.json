@@ -1,0 +1,17 @@
+{
+  "http": {
+    "manage_addr": "127.0.0.1:8081",
+    "cors_origins": [],
+    "trusted_proxies": []
+  },
+  "log": {
+    "dir": "./logs",
+    "level": "info"
+  },
+  "admin": {
+    "jwt_secret": "",
+    "redis_key_prefix": "",
+    "bootstrap_user": "",
+    "bootstrap_password": ""
+  }
+}

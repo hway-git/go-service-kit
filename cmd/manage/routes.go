@@ -1,27 +1,29 @@
 package main
 
 import (
-	"example.com/go-service-kit/cmd/manage/internal/config"
 	"example.com/go-service-kit/cmd/manage/internal/controllers/auth"
 	"example.com/go-service-kit/cmd/manage/internal/controllers/common"
 	"example.com/go-service-kit/cmd/manage/internal/controllers/ipwhitelist"
 	"example.com/go-service-kit/cmd/manage/internal/controllers/rbac"
 	"example.com/go-service-kit/cmd/manage/internal/middlewares"
+	"example.com/go-service-kit/shared/services/email"
 
 	"github.com/gin-gonic/gin"
 )
 
-func ConsoleRouters(router *gin.Engine) {
-	console := router.Group(config.Router_Prefix, middlewares.IPWhiteMiddleware())
-	console.POST("/ping", common.Common.Ping)
-	console.POST("/auth/login", auth.Auth.Login)
-	console.POST("/common/tz-set", common.System.TimezoneSet)
+func ConsoleRouters(router *gin.Engine, mail *email.Client, secret string) {
+	authController := auth.NewController(mail, secret)
+	manage := router.Group("", middlewares.IPWhiteMiddleware())
+	manage.POST("/ping", common.Common.Ping)
+	manage.POST("/auth/login", authController.Login)
+	manage.POST("/auth/login/verify-email", authController.VerifyEmail)
+	manage.POST("/common/tz-set", common.System.TimezoneSet)
 
-	secured := console.Group("", middlewares.AuthMiddleware(), middlewares.LoggingMiddleware())
+	secured := manage.Group("", middlewares.AuthMiddleware(), middlewares.LoggingMiddleware())
 	secured.GET("/common/init", common.Common.Init)
-	secured.POST("/auth/logout", auth.Auth.Logout)
-	secured.POST("/auth/reset-pwd", auth.Auth.ResetPwd)
-	secured.POST("/auth/verify", auth.Auth.Verify)
+	secured.POST("/auth/logout", authController.Logout)
+	secured.POST("/auth/reset-pwd", authController.ResetPwd)
+	secured.POST("/auth/verify", authController.Verify)
 
 	// 管理员及授权关系的写操作只允许超级管理员执行。
 	super := middlewares.SuperOnly

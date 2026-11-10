@@ -6,6 +6,17 @@ type LoginRequest struct {
 	Password string `json:"password" binding:"required"`
 }
 
+type LoginChallengeResponse struct {
+	ChallengeID string `json:"challenge_id"`
+	MaskedEmail string `json:"masked_email"`
+	ExpiresIn   int    `json:"expires_in"`
+}
+
+type LoginVerifyEmailRequest struct {
+	ChallengeID string `json:"challenge_id" binding:"required,len=32,hexadecimal"`
+	Code        string `json:"code" binding:"required,len=6,number"`
+}
+
 // ##################    登录接口返回体   ########################
 type AdminInfo struct {
 	AdminId  int    `json:"admin_id"`

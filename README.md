@@ -14,7 +14,7 @@ API 默认监听 `127.0.0.1:8080`，`GET /healthz` 返回存活状态，`GET /he
 
 ## 启动管理后台
 
-在新项目目录复制 `.env.example` 为 `.env`，填写 `MYSQL_DSN`、`REDIS_KEY_PREFIX`、`JWT_SECRET` 和初始管理员凭据。将 `config/connections.example.json` 复制为部署配置文件，填写 Redis 地址或集群节点，再用 `CONFIG_FILE` 指向该文件。MySQL 使用已存在的目标数据库，Redis 使用应用独立的键前缀。进程环境变量优先于 `.env`。
+在新项目目录复制 `.env.example` 为 `.env`，填写 `MYSQL_DSN`、`REDIS_KEY_PREFIX`、`JWT_SECRET` 和初始管理员凭据。在 `config/common.json` 中配置 Redis，管理端 HTTP 和日志设置放在 `config/manage.json`。MySQL 使用已存在的目标数据库，Redis 使用应用独立的键前缀。进程环境变量优先于 `.env`。
 
 ```powershell
 go run ./cmd/manage --init-db
@@ -23,16 +23,17 @@ go run ./cmd/manage
 
 `--init-db` 显式建表并补齐初始超管、系统开关和权限节点。重复执行保留已有管理员密码和授权。后台默认监听 `127.0.0.1:8081`，鉴权依赖 MySQL 和 Redis。后台口令使用 Argon2id，本脚手架使用新库初始化。
 
-- `POST /console/auth/login` 接收 JSON `username`、`password`。后续请求通过 `Authorization: Bearer <token>` 认证。响应中的 `Authorization` 头如有值，应更新客户端令牌。
-- `GET /console/common/init` 返回当前账号的菜单、权限和时区选项。管理员、菜单、角色、角色分组及 IP 白名单接口沿用原项目的 `/console` 路由。
+- `POST /auth/login` 接收 JSON `username`、`password`。后续请求通过 `Authorization: Bearer <token>` 认证。响应中的 `Authorization` 头如有值，应更新客户端令牌。
+- 管理员填写邮箱后，密码验证成功会返回 `data.challenge_id`、`data.masked_email` 和 `data.expires_in`。前端将 `challenge_id` 和六位字符串 `code` 提交给 `POST /auth/login/verify-email`，验证成功后取得 `data.token` 和 `data.info`。验证码有效期 5 分钟，每账号发信间隔至少 1 分钟，每个挑战最多允许 5 次错误尝试。启用前配置 SMTP。邮箱为空的账号仍在密码验证成功后直接取得 JWT。
+- `GET /common/init` 返回当前账号的菜单、权限和时区选项。
 - 业务路由加在后台的鉴权路由组，并在 `cmd/manage/internal/types/management_endpoints.go` 登记权限节点。执行 `--init-db` 后，由超管给角色分配权限。普通角色必须同时满足角色启用、节点启用和节点已授权。管理员、权限和系统设置的写操作由超管执行。启用 IP 白名单前，先添加当前管理端地址并同步。
 
 ## 启动配置
 
-配置按 **Go 默认值 → 可选 JSON → 环境变量** 合并。本地 `.env` 只补齐进程环境中未设置的变量。复制 `config/connections.example.json` 后，用 `CONFIG_FILE` 指向实际文件。
+从项目根目录启动时，按 **Go 默认值 → `config/common.json` → 应用 JSON（`config/api.json` 或 `config/manage.json`）→ 环境变量** 合并。缺失的文件会跳过。本地 `.env` 只补齐进程环境中未设置的变量。旧部署显式设置 `CONFIG_FILE` 时，仍只加载该变量指定的 JSON。
 
-- JSON 保存 HTTP、日志、MySQL 连接池、Redis 拓扑和 SMTP 非敏感参数。环境变量可覆盖监听地址、日志、CORS、可信代理、Redis 单点地址及 SMTP 非敏感参数。逗号分隔的 `CORS_ORIGINS` 和 `TRUSTED_PROXIES` 显式设为空时会清空对应列表。
-- DSN、密码、JWT 密钥及初始管理员凭据通过环境注入。副本 DSN 用 `MYSQL_REPLICA_0_DSN` 等变量，命名连接 DSN 用 `MYSQL_OTHER_<名称>_DSN`。
+- 邮箱 JSON 使用 `from`、`server_host`、`server_port`、`username`、`password`。环境变量仍使用 `EMAIL_*`，显式设置后覆盖 JSON。逗号分隔的 `CORS_ORIGINS` 和 `TRUSTED_PROXIES` 显式设为空时会清空对应列表。
+- 纳入版本控制的 JSON 中，DSN、密码、JWT 密钥和初始管理员凭据保留空占位，部署时由环境注入。副本 DSN 用 `MYSQL_REPLICA_0_DSN` 等变量，命名连接 DSN 用 `MYSQL_OTHER_<名称>_DSN`。
 - 单点 Redis 使用 `redis.mode: "single"` 和 `redis.address`，地址可用 `REDIS_ADDRESS` 覆盖。集群 Redis 使用 `redis.mode: "cluster"` 和非空的 `redis.addrs`，同时设置单点地址会报配置冲突。默认模式为 `single`。API 的单点地址留空时跳过 Redis 连接。
 - 后台运营开关由 MySQL 管理。
 
@@ -50,6 +51,8 @@ go run ./cmd/package -arch amd64
 ```
 
 ## 基础设施
+
+升级已有后台库时，先在维护窗口执行 `go run ./cmd/manage --init-db`，补建权限码唯一索引。若提示权限码重复，先核对涉及的节点和角色授权，再处理冲突并重新执行。权限节点的 `api_path` 使用完整的 Gin 路由模板，例如 `/admin/list`。权限码由服务端根据路径和 HTTP 方法生成，已有节点的路由身份固定。
 
 - `db/mysql` 保留 GORM 连接池、读副本和命名连接，`db/redis` 保留单点、集群和通用客户端。启用 Redis TLS 时验证证书。
 - `internal/httpserver` 为两端注册请求 ID、访问日志、恢复、正文大小限制、多语言及按来源启用的 CORS。默认只采信直接连接的客户端地址，反向代理部署可用 `TRUSTED_PROXIES` 指定可信代理地址或网段，并让代理正确设置转发头。

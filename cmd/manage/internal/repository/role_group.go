@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type RoleGroup struct {
@@ -30,23 +31,24 @@ func (c *RoleGroup) GetByNameNoSelf(name string, id int) (model model.Role) {
 	return
 }
 
-// 编辑删除
-func (c *RoleGroup) Delete(ids []int) error {
-	// 开始事务
+// Delete locks the group against new role assignments before checking references.
+func (c *RoleGroup) Delete(id int) error {
 	return mysql.DB.Transaction(func(tx *gorm.DB) error {
-		// 删除角色
-		var role model.RoleGroup
-		if err := tx.Where("id IN ?", ids).Delete(&role).Error; err != nil {
+		var group model.RoleGroup
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Take(&group, id).Error; err != nil {
 			return err
 		}
-
-		// //删除角色菜单 , 包含子菜单
-		// var roleMenu model.RoleMenu
-		// if err := tx.Where("role_id IN ?", ids).Delete(&roleMenu).Error; err != nil {
-		// 	return err
-		// }
-
-		return nil
+		if group.NoDelete != 0 {
+			return fmt.Errorf("该角色组不可删除")
+		}
+		var count int64
+		if err := tx.Model(&model.Role{}).Where("group_id = ?", id).Count(&count).Error; err != nil {
+			return err
+		}
+		if count != 0 {
+			return fmt.Errorf("角色分组仍被角色引用")
+		}
+		return tx.Delete(&group).Error
 	})
 }
 

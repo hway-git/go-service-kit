@@ -14,11 +14,11 @@ var ErrConfig = errors.New("邮箱配置无效，请检查发件地址、SMTP主
 
 // Config 保存共享SMTP参数，解析和校验不连接邮件服务器。
 type Config struct {
-	EmailFrom       string `json:"email_from"`
-	EmailServerHost string `json:"email_server_host"`
-	EmailServerPort int    `json:"email_server_port"`
-	EmailUsername   string `json:"email_username"`
-	EmailPassword   string `json:"-"`
+	EmailFrom       string `json:"from"`
+	EmailServerHost string `json:"server_host"`
+	EmailServerPort int    `json:"server_port"`
+	EmailUsername   string `json:"username"`
+	EmailPassword   string `json:"password,omitempty"`
 }
 
 // Configured 判断是否填写了任一邮箱配置，空配置不会阻止其他业务启动。
@@ -26,15 +26,14 @@ func (c *Config) Configured() bool {
 	return c != nil && (c.EmailFrom != "" || c.EmailServerHost != "" || c.EmailServerPort != 0 || c.EmailUsername != "" || c.EmailPassword != "")
 }
 
-// ApplyEnvironment 仅从环境读取密码，普通配置允许同名大写环境变量覆盖。
+// ApplyEnvironment 应用显式设置的 SMTP 环境变量。
 func (c *Config) ApplyEnvironment() error {
-	c.EmailPassword = os.Getenv("EMAIL_PASSWORD")
 	for _, entry := range []struct {
 		name  string
 		field *string
 	}{
 		{"EMAIL_FROM", &c.EmailFrom}, {"EMAIL_SERVER_HOST", &c.EmailServerHost},
-		{"EMAIL_USERNAME", &c.EmailUsername},
+		{"EMAIL_USERNAME", &c.EmailUsername}, {"EMAIL_PASSWORD", &c.EmailPassword},
 	} {
 		if value, exists := os.LookupEnv(entry.name); exists {
 			*entry.field = value

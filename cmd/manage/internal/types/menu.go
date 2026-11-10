@@ -34,7 +34,7 @@ type MenuAddRequest struct {
 	// 接口
 	ApiPath       string `json:"api_path"`       // 接口：路由地址
 	ApiMethod     string `json:"api_method"`     // 接口：请求方式：get|post|put|delete
-	ApiPermission string `json:"api_permission"` // 接口：权限标识
+	ApiPermission string `json:"api_permission"` // 兼容旧客户端，实际权限码由服务端生成。
 	// 前端
 	WebRouterComponent string `json:"web_router_component"`
 	WebRouterPath      string `json:"web_router_path"`

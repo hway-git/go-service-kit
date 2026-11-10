@@ -17,17 +17,17 @@ func environmentName(name string) string {
 
 // ApplyConnectionEnvironment 注入连接凭据并校验 Redis 拓扑和单点地址覆盖。
 func ApplyConnectionEnvironment(setting *types.Setting) error {
-	setting.MySQL.Dsn = os.Getenv("MYSQL_DSN")
+	overrideString("MYSQL_DSN", &setting.MySQL.Dsn)
 	for i := range setting.MySQL.Replica {
-		setting.MySQL.Replica[i].Dsn = os.Getenv("MYSQL_REPLICA_" + strconv.Itoa(i) + "_DSN")
+		overrideString("MYSQL_REPLICA_"+strconv.Itoa(i)+"_DSN", &setting.MySQL.Replica[i].Dsn)
 	}
 	for name, connection := range setting.MySQL.Other {
-		connection.Dsn = os.Getenv("MYSQL_OTHER_" + environmentName(name) + "_DSN")
+		overrideString("MYSQL_OTHER_"+environmentName(name)+"_DSN", &connection.Dsn)
 		setting.MySQL.Other[name] = connection
 	}
-	setting.Redis.Password = os.Getenv("REDIS_PASSWORD")
+	overrideString("REDIS_PASSWORD", &setting.Redis.Password)
 	for name, connection := range setting.Redis.Other {
-		connection.Password = os.Getenv("REDIS_OTHER_" + environmentName(name) + "_PASSWORD")
+		overrideString("REDIS_OTHER_"+environmentName(name)+"_PASSWORD", &connection.Password)
 		setting.Redis.Other[name] = connection
 	}
 	return resolveRedis(&setting.Redis.RedisConfig, strings.TrimSpace(os.Getenv("REDIS_ADDRESS")))

@@ -62,6 +62,10 @@ func (c *Admin) UpdateWithRole(row *model.Admin, password string, actorIsSuper b
 		if err != nil {
 			return err
 		}
+		activeSupers, err := lockActiveSuperAdmins(tx)
+		if err != nil {
+			return err
+		}
 		var current model.Admin
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ?", row.Id).Take(&current).Error; err != nil {
 			return err
@@ -71,6 +75,9 @@ func (c *Admin) UpdateWithRole(row *model.Admin, password string, actorIsSuper b
 		}
 		if !actorIsSuper && (current.IsSuper == model.ADMIN_IS_SUPER_Y || row.IsSuper == model.ADMIN_IS_SUPER_Y) {
 			return fmt.Errorf("仅超级管理员可管理超级管理员")
+		}
+		if activeSuperAdmin(&current) && !activeSuperAdmin(row) && activeSupers <= 1 {
+			return fmt.Errorf("必须保留至少一个启用的超级管理员")
 		}
 		if role.Status != model.ROLE_STATUS_NORMAL && current.RoleId != row.RoleId {
 			return fmt.Errorf("不能分配已禁用的角色")
@@ -88,6 +95,19 @@ func (c *Admin) UpdateWithRole(row *model.Admin, password string, actorIsSuper b
 		}
 		return tx.Model(&model.Admin{}).Where("id = ?", row.Id).Updates(fields).Error
 	})
+}
+
+func activeSuperAdmin(admin *model.Admin) bool {
+	return admin.Status == model.ADMIN_STATUS_ON && admin.IsSuper == model.ADMIN_IS_SUPER_Y
+}
+
+// lockActiveSuperAdmins serializes updates and deletions that could remove the last active super admin.
+func lockActiveSuperAdmins(tx *gorm.DB) (int, error) {
+	var admins []model.Admin
+	err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Select("id").
+		Where("is_super = ? AND status = ?", model.ADMIN_IS_SUPER_Y, model.ADMIN_STATUS_ON).
+		Order("id ASC").Find(&admins).Error
+	return len(admins), err
 }
 
 // ChangePassword 在锁内校验当前密码，只更新密码字段。
@@ -111,6 +131,10 @@ func (c *Admin) ChangePassword(id int, previous, next string) error {
 // DeleteAuthorized 锁定目标后再次检查受保护的管理员身份。
 func (c *Admin) DeleteAuthorized(id int64, actorIsSuper bool) error {
 	return c.db().Transaction(func(tx *gorm.DB) error {
+		activeSupers, err := lockActiveSuperAdmins(tx)
+		if err != nil {
+			return err
+		}
 		var current model.Admin
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&current, id).Error; err != nil {
 			return err
@@ -120,6 +144,9 @@ func (c *Admin) DeleteAuthorized(id int64, actorIsSuper bool) error {
 		}
 		if current.IsSuper == model.ADMIN_IS_SUPER_Y && !actorIsSuper {
 			return fmt.Errorf("仅超级管理员可管理超级管理员")
+		}
+		if activeSuperAdmin(&current) && activeSupers <= 1 {
+			return fmt.Errorf("必须保留至少一个启用的超级管理员")
 		}
 		return tx.Delete(&current).Error
 	})

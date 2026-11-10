@@ -98,18 +98,6 @@ func (*MenuController) Add(ctx *gin.Context) {
 	if params.TitleEn == "" {
 		params.TitleEn = params.Title
 	}
-	//确认父层级的可行性
-	if params.Pid > 0 {
-		var PMenu model.Menu
-		if err := menuDB.GetById(int64(params.Pid), &PMenu); err != nil {
-			response.ApiError(ctx, "上级菜单有误", nil)
-			return
-		}
-		if PMenu.Type != model.MENU_TYPE_MENU {
-			response.ApiError(ctx, "上级类型必须是菜单", nil)
-			return
-		}
-	}
 
 	//类型
 	switch params.Type {
@@ -128,12 +116,11 @@ func (*MenuController) Add(ctx *gin.Context) {
 			// 清空节点字段
 			params.ApiMethod = ""
 			params.ApiPath = ""
-			params.ApiPermission = ""
 		}
 	// 节点
 	case model.MENU_TYPE_NODE:
 		{
-			if params.ApiPermission == "" || params.ApiPath == "" || params.ApiMethod == "" {
+			if params.ApiPath == "" || params.ApiMethod == "" {
 				response.ApiError(ctx, "参数错误", nil)
 				return
 			}
@@ -162,7 +149,6 @@ func (*MenuController) Add(ctx *gin.Context) {
 		Icon:               params.Icon,
 		ApiMethod:          params.ApiMethod,
 		ApiPath:            params.ApiPath,
-		ApiPermission:      params.ApiPermission,
 		WebRouterPath:      params.WebRouterPath,
 		WebRouterName:      params.WebRouterName,
 		WebRouterRedirect:  params.WebRouterRedirect,
@@ -179,7 +165,7 @@ func (*MenuController) Add(ctx *gin.Context) {
 	}
 
 	if _, err := menuDB.Add(menu); err != nil {
-		response.ApiError(ctx, "操作失败", nil)
+		response.ApiError(ctx, err.Error(), nil)
 		return
 	}
 
@@ -208,27 +194,10 @@ func (*MenuController) Edit(ctx *gin.Context) {
 	menuDB := repository.Menu{}
 
 	// 获取菜单
-	var menu model.Menu
-	if err := menuDB.GetById(int64(params.Id), &menu); err != nil {
-		response.ApiError(ctx, err.Error(), nil)
-		return
-	}
+	menu := model.Menu{Id: params.Id}
 	//如果没有，则用中文的
 	if params.TitleEn == "" {
 		params.TitleEn = params.Title
-	}
-	//确认父层级的可行性
-	if params.Pid > 0 {
-
-		var pMenu model.Menu
-		if err := menuDB.GetById(int64(params.Pid), &pMenu); err != nil {
-			response.ApiError(ctx, "上级菜单有误", nil)
-			return
-		}
-		if pMenu.Type != model.MENU_TYPE_MENU {
-			response.ApiError(ctx, "上级类型必须是菜单", nil)
-			return
-		}
 	}
 
 	//菜单
@@ -245,11 +214,10 @@ func (*MenuController) Edit(ctx *gin.Context) {
 		// 清空节点字段
 		params.ApiMethod = ""
 		params.ApiPath = ""
-		params.ApiPermission = ""
 	}
 	// 节点
 	if params.Type == model.MENU_TYPE_NODE {
-		if params.ApiPermission == "" || params.ApiPath == "" || params.ApiMethod == "" {
+		if params.ApiPath == "" || params.ApiMethod == "" {
 			response.ApiError(ctx, "参数错误", nil)
 			return
 		}
@@ -277,7 +245,6 @@ func (*MenuController) Edit(ctx *gin.Context) {
 
 	menu.ApiMethod = params.ApiMethod
 	menu.ApiPath = params.ApiPath
-	menu.ApiPermission = params.ApiPermission
 
 	menu.WebRouterPath = params.WebRouterPath
 	menu.WebRouterName = params.WebRouterName
@@ -326,19 +293,7 @@ func (*MenuController) Delete(ctx *gin.Context) {
 	}
 	// 实例化DB
 	menuDB := repository.Menu{}
-	// 获取菜单
-
-	var menu model.Menu
-	if err := menuDB.GetById(int64(params.Id), &menu); err != nil {
-		response.ApiError(ctx, err.Error(), nil)
-		return
-	}
-	// 删除本身及子集
-	menuList := menuDB.GetAll()
-	childrenIds := FindChildrenIds(menuList, params.Id)
-	// 带上自己
-	childrenIds = append(childrenIds, params.Id)
-	if err := menuDB.Delete(childrenIds); err != nil {
+	if err := menuDB.Delete(params.Id); err != nil {
 		response.ApiError(ctx, err.Error(), nil)
 		return
 	}
@@ -385,15 +340,7 @@ func (*MenuController) SetStatus(ctx *gin.Context) {
 	// 实例化DB
 	menuDB := repository.Menu{}
 
-	// 获取菜单
-	var menu model.Menu
-	if err := menuDB.GetById(int64(params.Id), &menu); err != nil {
-		response.ApiError(ctx, "参数错误", nil)
-		return
-	}
-	// 修改数据
-	menu.Status = params.Status
-	if err := menuDB.Update(&menu); err != nil {
+	if err := menuDB.SetStatus(params.Id, params.Status); err != nil {
 		response.ApiError(ctx, err.Error(), nil)
 		return
 	}

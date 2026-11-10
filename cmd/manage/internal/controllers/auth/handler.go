@@ -1,6 +1,8 @@
 package auth
 
 import (
+	"strings"
+
 	"example.com/go-service-kit/cmd/manage/internal/cache"
 	"example.com/go-service-kit/cmd/manage/internal/config"
 	"example.com/go-service-kit/cmd/manage/internal/model"
@@ -11,17 +13,24 @@ import (
 	"example.com/go-service-kit/cmd/manage/internal/utils/help"
 	"example.com/go-service-kit/cmd/manage/internal/utils/jwt"
 	"example.com/go-service-kit/cmd/manage/internal/utils/validatorx"
+	"example.com/go-service-kit/shared/services/email"
 	"example.com/go-service-kit/utils/tool"
 
 	"github.com/gin-gonic/gin"
 )
 
-var Auth = new(AuthController)
+type AuthController struct {
+	mail    *email.Client
+	codeKey []byte
+}
 
-type AuthController struct{}
+func NewController(mail *email.Client, secret string) *AuthController {
+	return &AuthController{mail: mail, codeKey: []byte(secret)}
+}
 
 // 登录
 // @Summary 管理员登录
+// @Description 账号配置邮箱时返回 challenge_id、masked_email 和 expires_in，验证邮箱后签发 JWT。
 // @Tags 管理员认证
 // @Accept json
 // @Produce json
@@ -56,19 +65,32 @@ func (c *AuthController) Login(ctx *gin.Context) {
 		return
 	}
 
-	// 普通管理员登录时校验当前角色，超级管理员保留权限豁免。
+	if !loginRoleAllowed(ctx, &admin) {
+		return
+	}
+	if strings.TrimSpace(admin.Email) != "" {
+		c.beginEmailVerification(ctx, &admin)
+		return
+	}
+	c.completeLogin(ctx, &admin)
+}
+
+func loginRoleAllowed(ctx *gin.Context, admin *model.Admin) bool {
 	if admin.IsSuper != model.ADMIN_IS_SUPER_Y {
 		var role model.Role
 		if err := (&repository.Role{}).GetById(int64(admin.RoleId), &role); err != nil || role.Status != model.ROLE_STATUS_NORMAL {
 			response.ApiError(ctx, "角色不存在或已禁用", nil)
-			return
+			return false
 		}
 	}
+	return true
+}
 
+func (c *AuthController) completeLogin(ctx *gin.Context, admin *model.Admin) {
 	admin.Timezone = help.GetTimezone(ctx)
 
 	jti := tool.GetUUID()
-	token, err := jwt.CreateUserToken(&admin, jti)
+	token, err := jwt.CreateUserToken(admin, jti)
 	if err != nil {
 		response.ApiError(ctx, "登录失败", nil)
 		return

@@ -4,7 +4,6 @@ import (
 	"example.com/go-service-kit/cmd/manage/internal/utils/help"
 	"fmt"
 	"slices"
-	"strings"
 	"time"
 
 	"example.com/go-service-kit/cmd/manage/internal/cache"
@@ -12,6 +11,7 @@ import (
 	"example.com/go-service-kit/cmd/manage/internal/model"
 	"example.com/go-service-kit/cmd/manage/internal/repository"
 	"example.com/go-service-kit/cmd/manage/internal/response"
+	"example.com/go-service-kit/cmd/manage/internal/types"
 	"example.com/go-service-kit/cmd/manage/internal/utils/jwt"
 	"example.com/go-service-kit/utils/tool"
 
@@ -134,12 +134,12 @@ func checkToken(c *gin.Context) (*jwt.Claims, bool) {
 
 // checkApi 只信任服务端路由和HTTP方法，公共操作使用固定的最小白名单。
 func checkApi(c *gin.Context, claims *jwt.Claims) bool {
-	path := strings.TrimPrefix(c.FullPath(), "/"+strings.Trim(config.Router_Prefix, "/"))
+	path := c.FullPath()
 	switch c.Request.Method + " " + path {
 	case "GET /common/init", "POST /auth/logout", "POST /auth/reset-pwd", "POST /auth/verify":
 		return true
 	}
-	permission := strings.ReplaceAll(strings.Trim(path, "/"), "/", ".") + "." + strings.ToLower(c.Request.Method)
+	endpoint := types.BusinessEndpoint{Path: path, Method: c.Request.Method}
 	ids, err := (&repository.Role{}).GetPermission(claims.RoleId)
 	if err != nil {
 		return false
@@ -148,13 +148,15 @@ func checkApi(c *gin.Context, claims *jwt.Claims) bool {
 	if err != nil {
 		return false
 	}
-	return apiPermissionAllowed(permission, ids, menus)
+	return apiPermissionAllowed(endpoint, ids, menus)
 }
 
 // apiPermissionAllowed 缺少启用的权限节点时拒绝访问。
-func apiPermissionAllowed(permission string, ids []int, menus []model.Menu) bool {
+func apiPermissionAllowed(endpoint types.BusinessEndpoint, ids []int, menus []model.Menu) bool {
+	permission := endpoint.Permission()
 	for _, menu := range menus {
-		if menu.ApiPermission == permission && menu.Type == model.MENU_TYPE_NODE && menu.Status == model.MENU_STATUS_ON {
+		if string(menu.ApiPermission) == permission && menu.ApiPath == endpoint.Path && menu.ApiMethod == endpoint.Method &&
+			menu.Type == model.MENU_TYPE_NODE && menu.Status == model.MENU_STATUS_ON {
 			return slices.Contains(ids, menu.Id)
 		}
 	}

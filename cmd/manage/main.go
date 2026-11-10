@@ -61,7 +61,7 @@ func run(initDB bool) error {
 	if err != nil {
 		return err
 	}
-	ConsoleRouters(router)
+	ConsoleRouters(router, runtime.Mail, runtime.Admin.JWTSecret)
 
 	return httpserver.Run(runtime.Addr, router)
 }

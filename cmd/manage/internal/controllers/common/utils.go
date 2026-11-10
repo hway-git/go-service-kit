@@ -93,7 +93,7 @@ func getAdminNode(ctx *gin.Context, auth model.Admin) []string {
 	var normalNodes []model.Menu                      // 有效菜单
 	var allNodes = (&repository.Menu{}).GetAllNodes() // 全部节点
 	for _, v := range allNodes {
-		if v.Status == model.MENU_STATUS_OFF {
+		if v.Status != model.MENU_STATUS_ON || v.ApiPermission == "" {
 			continue
 		}
 		normalNodes = append(normalNodes, v)
@@ -117,7 +117,7 @@ func getAdminNode(ctx *gin.Context, auth model.Admin) []string {
 	// 取出节点字符串
 	var nodeStrings = []string{}
 	for _, v := range normalNodes {
-		nodeStrings = append(nodeStrings, v.ApiPermission)
+		nodeStrings = append(nodeStrings, string(v.ApiPermission))
 	}
 	return nodeStrings
 }

@@ -159,26 +159,3 @@ func GetMenuList(menus []model.Menu) []types.MenuList {
 	}
 	return menuList
 }
-
-// 获取菜单下的所有子菜单ID
-func FindChildrenIds(menuList []model.Menu, id int) []int {
-	children := make(map[int][]int)
-	for _, menu := range menuList {
-		children[menu.Pid] = append(children[menu.Pid], menu.Id)
-	}
-	visited := map[int]bool{id: true}
-	var result []int
-	var visit func(int)
-	visit = func(parent int) {
-		for _, child := range children[parent] {
-			if visited[child] {
-				continue
-			}
-			visited[child] = true
-			result = append(result, child)
-			visit(child)
-		}
-	}
-	visit(id)
-	return result
-}

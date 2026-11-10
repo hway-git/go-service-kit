@@ -46,11 +46,11 @@ type MySQL struct {
 
 // MySQLConfig 数据库连接配置（通用）
 type MySQLConfig struct {
-	Charset  string `json:"charset"`  // 字符集（可选）
-	Dsn      string `json:"-"`        // 数据库连接串，仅由环境变量注入
-	Idle     int    `json:"idle"`     // 连接池中最大空闲连接数
-	Open     int    `json:"open"`     // 数据库的最大打开连接数
-	Lifetime int64  `json:"lifetime"` // 连接的最大生命周期（秒）
+	Charset  string `json:"charset"`       // 字符集（可选）
+	Dsn      string `json:"dsn,omitempty"` // 数据库连接串
+	Idle     int    `json:"idle"`          // 连接池中最大空闲连接数
+	Open     int    `json:"open"`          // 数据库的最大打开连接数
+	Lifetime int64  `json:"lifetime"`      // 连接的最大生命周期（秒）
 }
 
 // ==================================        Redis        ======================
@@ -69,13 +69,13 @@ const (
 )
 
 type RedisConfig struct {
-	Mode     string   `json:"mode"`     // 连接模式
-	Address  string   `json:"address"`  // 单点地址（host:port）
-	Addrs    []string `json:"addrs"`    // 集群节点地址列表（cluster 模式）
-	Password string   `json:"-"`        // 密码
-	DB       int      `json:"db"`       // 数据库
-	PoolSize int      `json:"poolsize"` // 连接池数量
-	Tls      bool     `json:"tls"`      // 是否启用TLS
+	Mode     string   `json:"mode"`               // 连接模式
+	Address  string   `json:"address"`            // 单点地址（host:port）
+	Addrs    []string `json:"addrs"`              // 集群节点地址列表（cluster 模式）
+	Password string   `json:"password,omitempty"` // 密码
+	DB       int      `json:"db"`                 // 数据库
+	PoolSize int      `json:"poolsize"`           // 连接池数量
+	Tls      bool     `json:"tls"`                // 是否启用TLS
 }
 
 // ==================================        Extend        ======================

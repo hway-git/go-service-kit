@@ -17,8 +17,8 @@ type Config struct {
 	Bucket          string `json:"bucket"`
 	PublicBaseURL   string `json:"public_base_url"`
 	MaxUploadBytes  int64  `json:"max_upload_bytes"`
-	AccessKeyID     string `json:"-"`
-	SecretAccessKey string `json:"-"`
+	AccessKeyID     string `json:"access_key_id,omitempty"`
+	SecretAccessKey string `json:"secret_access_key,omitempty"`
 }
 
 func (c *Config) defaults() {
@@ -27,10 +27,14 @@ func (c *Config) defaults() {
 	}
 }
 
-// ApplyEnvironment 只从环境读取 R2 凭据。
+// ApplyEnvironment 应用显式设置的 R2 环境变量。
 func (c *Config) ApplyEnvironment() {
-	c.AccessKeyID = os.Getenv("R2_ACCESS_KEY_ID")
-	c.SecretAccessKey = os.Getenv("R2_SECRET_ACCESS_KEY")
+	if value, exists := os.LookupEnv("R2_ACCESS_KEY_ID"); exists {
+		c.AccessKeyID = value
+	}
+	if value, exists := os.LookupEnv("R2_SECRET_ACCESS_KEY"); exists {
+		c.SecretAccessKey = value
+	}
 }
 
 var bucketPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$`)

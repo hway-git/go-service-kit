@@ -1,0 +1,11 @@
+{
+  "http": {
+    "api_addr": "127.0.0.1:8080",
+    "cors_origins": [],
+    "trusted_proxies": []
+  },
+  "log": {
+    "dir": "./logs",
+    "level": "info"
+  }
+}

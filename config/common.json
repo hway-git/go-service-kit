@@ -1,20 +1,11 @@
 {
-  "http": {
-    "api_addr": "127.0.0.1:8080",
-    "manage_addr": "127.0.0.1:8081",
-    "cors_origins": [],
-    "trusted_proxies": []
-  },
-  "log": {
-    "dir": "./logs",
-    "level": "info"
-  },
   "mysql": {
     "idle": 5,
     "open": 20,
     "lifetime": 300,
     "replica": [],
-    "other": {}
+    "other": {},
+    "dsn": ""
   },
   "redis": {
     "mode": "single",
@@ -22,18 +13,28 @@
     "addrs": [],
     "db": 0,
     "poolsize": 10,
-    "tls": false
+    "tls": false,
+    "password": ""
   },
-  "email": {},
+  "email": {
+    "from": "",
+    "server_host": "",
+    "server_port": 0,
+    "username": "",
+    "password": ""
+  },
   "r2": {
     "enabled": false,
     "endpoint": "",
     "bucket": "",
     "public_base_url": "",
-    "max_upload_bytes": 20971520
+    "max_upload_bytes": 20971520,
+    "access_key_id": "",
+    "secret_access_key": ""
   },
   "rsa": {
     "enabled": false,
-    "public_key_file": ""
+    "public_key_file": "",
+    "private_key_file": ""
   }
 }

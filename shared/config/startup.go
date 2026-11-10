@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"example.com/go-service-kit/shared/services/email"
@@ -21,7 +23,7 @@ type Startup struct {
 	Email email.Config `json:"email"`
 	R2    r2.Config    `json:"r2"`
 	RSA   rsa.Config   `json:"rsa"`
-	Admin AdminConfig  `json:"-"`
+	Admin AdminConfig  `json:"admin"`
 }
 
 type HTTPConfig struct {
@@ -37,14 +39,14 @@ type LogConfig struct {
 }
 
 type AdminConfig struct {
-	JWTSecret         string
-	RedisKeyPrefix    string
-	BootstrapUser     string
-	BootstrapPassword string
+	JWTSecret         string `json:"jwt_secret,omitempty"`
+	RedisKeyPrefix    string `json:"redis_key_prefix"`
+	BootstrapUser     string `json:"bootstrap_user"`
+	BootstrapPassword string `json:"bootstrap_password,omitempty"`
 }
 
-// LoadStartup 合并 Go 默认值、部署 JSON 和环境变量，返回启动配置快照。
-func LoadStartup() (*Startup, error) {
+// LoadStartup 合并 Go 默认值、共享配置、应用配置和环境变量。
+func LoadStartup(service string) (*Startup, error) {
 	if err := LoadDotEnv(""); err != nil {
 		return nil, err
 	}
@@ -57,7 +59,14 @@ func LoadStartup() (*Startup, error) {
 
 	if path := os.Getenv("CONFIG_FILE"); path != "" {
 		if err := cfg.loadJSON(path); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("加载 %s: %w", path, err)
+		}
+	} else {
+		for _, name := range []string{"common.json", service + ".json"} {
+			path := filepath.Join("config", name)
+			if err := cfg.loadJSON(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+				return nil, fmt.Errorf("加载 %s: %w", path, err)
+			}
 		}
 	}
 	if err := ApplyConnectionEnvironment(&cfg.Setting); err != nil {
@@ -92,24 +101,29 @@ func LoadStartup() (*Startup, error) {
 		return nil, errors.New("HTTP 监听地址不能为空")
 	}
 
-	cfg.Admin = AdminConfig{
-		JWTSecret:         os.Getenv("JWT_SECRET"),
-		RedisKeyPrefix:    strings.TrimSpace(os.Getenv("REDIS_KEY_PREFIX")),
-		BootstrapUser:     os.Getenv("BOOTSTRAP_ADMIN_USER"),
-		BootstrapPassword: os.Getenv("BOOTSTRAP_ADMIN_PASSWORD"),
-	}
+	overrideString("JWT_SECRET", &cfg.Admin.JWTSecret)
+	overrideString("REDIS_KEY_PREFIX", &cfg.Admin.RedisKeyPrefix)
+	cfg.Admin.RedisKeyPrefix = strings.TrimSpace(cfg.Admin.RedisKeyPrefix)
+	overrideString("BOOTSTRAP_ADMIN_USER", &cfg.Admin.BootstrapUser)
+	overrideString("BOOTSTRAP_ADMIN_PASSWORD", &cfg.Admin.BootstrapPassword)
 	if err := cfg.Email.ApplyEnvironment(); err != nil {
 		return nil, err
 	}
 	cfg.R2.ApplyEnvironment()
-	cfg.RSA.PrivateKeyFile = os.Getenv("RSA_PRIVATE_KEY_FILE")
+	overrideString("RSA_PRIVATE_KEY_FILE", &cfg.RSA.PrivateKeyFile)
 	return cfg, nil
+}
+
+func overrideString(name string, target *string) {
+	if value, exists := os.LookupEnv(name); exists {
+		*target = value
+	}
 }
 
 func (c *Startup) loadJSON(path string) error {
 	raw, err := os.ReadFile(path)
 	if err != nil {
-		return errors.New("无法读取启动配置文件")
+		return err
 	}
 	raw = bytes.TrimSpace(bytes.TrimPrefix(raw, []byte("\uFEFF")))
 	if len(raw) == 0 || raw[0] != '{' {

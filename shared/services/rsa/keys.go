@@ -14,7 +14,7 @@ import (
 type Config struct {
 	Enabled        bool   `json:"enabled"`
 	PublicKeyFile  string `json:"public_key_file"`
-	PrivateKeyFile string `json:"-"`
+	PrivateKeyFile string `json:"private_key_file,omitempty"`
 }
 
 // Keys 将验签或加密公钥与签名或解密私钥分开，支持只加载其中一把。

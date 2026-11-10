@@ -28,7 +28,7 @@ type Runtime struct {
 
 // Load 加载启动配置并初始化日志及启用的基础服务。
 func Load(service string) (*Runtime, error) {
-	cfg, err := config.LoadStartup()
+	cfg, err := config.LoadStartup(service)
 	if err != nil {
 		return nil, err
 	}
