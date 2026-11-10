@@ -1,0 +1,16 @@
+{
+  "操作成功": "bem-sucedida",
+  "操作失败": "falhou",
+  "ID不存在": "ID é erro",
+  "正常": "Habilitar",
+  "禁用": "Desativar",
+  "参数错误": "Erro de parâmetro",
+  "参数 %s 验证失败 (%s)": "A verificação do parâmetro %s falhou (%s)",
+  "参数验证失败": "A verificação do parâmetro falhou",
+  "密码不能为空": "A senha não pode estar vazia",
+  "密码错误": "Senha incorreta",
+  "获取登录信息失败": "Falha ao obter informações de login",
+  "账号不存在": "Conta não existe",
+  "你好": "Olá",
+  "请求正文超限": "O corpo da solicitação excede o limite"
+}

@@ -1,0 +1,18 @@
+{
+  "仅超级管理员可管理超级管理员": "Only a super administrator can manage super administrators",
+  "超级管理员标记只支持0或1": "The super administrator flag must be 0 or 1",
+  "操作成功": "Successful",
+  "操作失败": "Failed",
+  "ID不存在": "Id is error",
+  "正常": "Normal",
+  "禁用": "Disable",
+  "参数错误": "Parameter error",
+  "参数 %s 验证失败 (%s)": "Parameter %s verification failed (%s)",
+  "参数验证失败": "Parameter verification failed",
+  "密码不能为空": "Password cannot be empty",
+  "密码错误": "Password error",
+  "获取登录信息失败": "Failed to get login information",
+  "账号不存在": "Account does not exist",
+  "你好": "Hello",
+  "请求正文超限": "Request body is too large"
+}
